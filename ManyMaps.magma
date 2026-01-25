@@ -1,0 +1,562 @@
+// ManyMaps.magma
+// Version 0.9
+// 24 January 2026
+
+// Code related to the paper:
+
+// [Howe2026]
+// Everett W. Howe:
+// Curves of genus two with maps of every degree to a fixed elliptic curve
+// arXiv link to be provided
+
+
+/* 
+================================================================================
+
+This file contains Magma programs that are designed to compute all pairs 
+(tau, sigma), with tau in a certain fundamental domain for Gamma(1) and sigma
+in a certain fundmental domain for Gamma(2), such that there is a curve C
+with period matrix
+
+[1   0   tau/2      1/2]
+[0   1     1/2  sigma/2]
+
+(and with a particular Riemann form) such that C has maps of every degree n > 1
+to the elliptic curve associated to tau.
+
+It requires another file, modpols61.magma, which should be available in the
+GitHub repo https://github.com/everetthowe/many-maps.
+
+
+The main program is CurvesWithManyMaps(), a procedure found near the very end of
+the file. When this program is run, it will print data for all pairs (C,E) as 
+above. The output consists of rows of the form
+
+d,   Delta_E,   Delta_F,   tau,   sigma,   rho,   n 
+
+Here d is a squarefree negative integer, Delta_E and Delta_F are discriminants
+of imaginary quadratic orders in the field Q(\sqrt{d}), tau is an element of F_1,
+sigma is an element of F_2, rho is an element of F_1 giving the same elliptic 
+curve as sigma, and n is an integer between 1 and 4. The meaning of these 
+quantities is explained in [Howe2026].
+
+We also include a function, VerifyExamples(), that verifies that the pairs
+(C,E) specified in Section ?? of [Howe2026]. 
+
+*/
+
+load "modpols61.magma";
+// This file contains a program, ModPols61(x,y), that returns a list of the
+// first 61 classical modular polynomials Phi_n, in the variables x and y.
+// For prime powers n less than 61, Magma's modular polynomial database
+// contains Phi_n. For n < 61 that are not prime powere, we obtain Phi_n(x,y)
+// as the z-resultant of Phi_a(x,z) and Phi_b(y,z) for a choice of coprime 
+// integers a and b with n=a*b. 
+// We obtain Phi_61 from Drew Sutherland's web page. 
+
+
+function Isogenies(j1,j2,d,modpols)
+  // Returns a list of all pairs [e,s] such that d = e*s^2 and there exists a
+  // cyclic isogeny of degree e between the elliptic curves of j-invariants
+  // j1 and j2. 
+  // The input modpols must be a sequence whose i-th element is the classical
+  // modular polynomial for cyclic i-isogenies, for every divisor i of d with
+  // d/i equal to a square.
+  // If d = 0 then return [0,0].
+  if d eq 0 then return [[0,0]]; end if;
+  deglist := [];
+  for e in Divisors(d) do
+    bool, s := IsSquare(d div e);
+    if bool then 
+      f := modpols[e];
+      if Evaluate(f,[j1,j2]) eq 0 then
+        deglist cat:= [[e,s]];
+      end if;
+    end if;
+  end for;
+  return deglist;
+end function;
+
+
+function IsPossiblePair(j1,j2,d,modpols)
+  // Let E1 and E2 be elliptic curves of j-invariants j1 and j2.
+  // Return true if there is an endomorphism phi of E1 and an isogeny psi
+  // from E1 to E2 such that 
+  //   (a) 2*d = deg(phi) + deg(psi) and 
+  //   (b) the kernels of phi and psi have isomorphic 2-torsion. 
+  // Condition (b) means that either
+  //   (c) deg(phi) and deg(psi) are both odd, or
+  //   (d) deg(phi) and deg(psi) are both even, but neither factors through
+  //       multiplication-by-2, or
+  //   (e) both phi and psi factor through multiplication-by-2.
+  // The input modpols must be a sequence whose i-th element is the classical
+  // modular polynomial for cyclic i-isogenies, for every integer i between
+  // 1 and 2*d-1 (if d is odd) or between 1 and 2*d (if d is even).
+
+  degs := [];
+  if IsOdd(d) then range := [1..2*d-1]; else range := [0..2*d]; end if;
+  for a in range do
+    b := 2*d - a;
+    endos := Isogenies(j1,j1,a,modpols);
+    isogs := Isogenies(j1,j2,b,modpols);
+    if IsOdd(a) then
+      if #endos gt 0 and #isogs gt 0 then 
+        return true;
+      end if;
+    else
+      if #[p : p in endos | IsEven(p[2])] gt 0 and 
+         #[p : p in isogs | IsEven(p[2])] gt 0 then 
+         // The 2-ranks of the kernels are both 2.
+        return true;
+      end if;
+      if #[p : p in endos | IsOdd(p[2])] gt 0 and 
+         #[p : p in isogs | IsOdd(p[2])] gt 0 then 
+         // Because a and b are even, the 2-ranks of the kernels are both 1.
+        return true;
+      end if;      
+    end if;
+  end for;
+  return false;
+end function;
+
+
+
+function MinimalPolynomialQbar(a)
+  // Given an element of a number field, return its minimal polynomial over Q.
+  // We make our own function for this because Magma's MinimalPolynomial 
+  // function does not allow its input to be an element of the rational numbers.
+  if Degree(Parent(a)) eq 1 then
+    return PolynomialRing(Rationals())![-a,1];
+  else
+    return MinimalPolynomial(a, Rationals());
+  end if;
+end function;
+
+
+
+function IsInFundamentalDomainX1(z)
+  // z is an element of an imaginary quadratic field K, and if omega := K.1 then
+  // we say that z has positive imaginary part if z = x + y*omega with y>0.
+  // Return true if an only if z lies in the strict fundamental domain for 
+  // the full modular group Gamma(1) given in the paper: Complex numbers of norm
+  // greater than 1 whose real parts have absolute value at most 1/2, together
+  // with the boundary points of this region with nonpositive real part. 
+  if Eltseq(z/1)[2] le 0 then return false; end if;
+  t := Trace(z,Rationals());
+  n := Norm(z,Rationals());
+  return t lt 1 and t ge -1 and ((n gt 1) or (t le 0 and n eq 1));
+end function;
+
+
+function ImageInFundamentalDomainX1(z)
+  // Given an element of m imaginary quadratic field, compute an element y
+  // of the fundamental domain for Gamma(1) described above such that the
+  // lattic <1, y> is isomorphic to the lattice <1, z>.
+  if Eltseq(z)[2] lt 0 then z := -z; end if;
+  repeat
+    t := Trace(z);    
+    if t ge 1 then z -:= Ceiling(t/2); end if;
+    if t lt -1 then z -:= Floor(t/2); end if;
+    if Norm(z) lt 1 or (Trace(z) gt 0 and Norm(z) eq 1) then
+      z := -1/z;
+    end if;
+  until IsInFundamentalDomainX1((z));
+  return z;
+end function;
+
+
+function PreimagesX2(z)
+  // z is an element of an imaginary quadratic field K that lies in the
+  // fundamental domain for Gamma(1) described above. 
+  // Consider the strict fundamental domain for Gamma(2) described in the
+  // paper: It is the union of the images of the strict fundamental domain for
+  // Gamma(1), described above, under the six Mobius transformations z , -1/z,
+  // -1/(z-1), z/(z+1), (z-1)/z, (z+1), minus the boundary points 
+  // (3 + sqrt(-3))/2 and (3 + sqrt(-3))/6.
+  // Return the elements of this strict fundamental domain that give the same
+  // elliptic curve as does z.
+  // There are six preimages unless z^2 + 1 = 0 or z^2 + z + 1 = 0.
+  if z^2 + 1 eq 0 then
+    return [z, 1/2*(z + 1), z + 1];
+  end if;
+  if z^2 + z + 1 eq 0 then
+    return [z, z+1];
+  end if;
+  return [z , -1/z, -1/(z-1), z/(z+1), (z-1)/z, (z+1)];
+end function;
+
+      
+function LatticesFromDiscriminant(Delta,K)
+  // K is imaginary quadratic field with discriminant D differing from Delta
+  // by a square. Let h be class number of Delta.
+  // WE ASSUME: h is at most 2, and if K has class number 2, then Delta = D.
+  // (This is checked during the computation.)
+  // Return h elements tau of K such that the lattices <1,tau> have endomorphism
+  // rings of discriminant Delta, and are non-isomorphic as Delta-lattices.
+  
+  O := MaximalOrder(K);
+  D := Discriminant(O);
+  bool, f := IsSquare(Delta/D);
+  f := Integers()!f;
+  easyone := ImageInFundamentalDomainX1(f*O.2);
+
+  if ClassNumber(Delta) eq 1 then
+    return [easyone];
+  end if;
+  
+  if ClassNumber(D) eq 2 then
+    if D ne Delta then error "Unexpected case!"; end if;
+    p := 1;
+    repeat
+      p := NextPrime(p);
+      I := Factorization(ideal<O|p>)[1][1];
+    until not IsPrincipal(I);
+    a,b := TwoElement(I);
+    nontrivial := ImageInFundamentalDomainX1(b/a);
+    return [K|easyone, nontrivial];
+  end if;
+  
+  I := ideal<O | f>;
+  R := quo<O|I>;
+  units := [a : a in R | R!1 in [a*b :b in R]];
+  U, phi := UnitGroup(O);
+  trivial := {R!phi(U.1)};
+  trivial join:= {R!a : a in [1..f-1] | GCD(a,f) eq 1};
+  repeat 
+    ct := #trivial; 
+    trivial := {a*b : a,b in trivial};
+  until ct eq #trivial;
+  gen :=Sort([O!a : a in units | not a in trivial and Eltseq(a)[2] eq 1])[1];
+  // Lattice is gen'd by f, f*O.2, and gen. Since gen = c + O.2 for some c,
+  // we find that f*O.2 is in the lattice generated by f and gen.
+  // So our nontivial lattice will be generated by 1 and gen/f.
+  nontrivial := ImageInFundamentalDomainX1(gen/f);
+  assert easyone ne nontrivial;
+  return [K|easyone, nontrivial];
+end function;  
+  
+
+
+function QuadraticConjugate(z)
+  // z is an element of an imaginary quadratic field. Return its conjugate.
+  return Trace(z,Rationals()) - z;
+end function;
+  
+  
+
+function PolarizationPairing(tau,sigma,v1,v2)
+  // The alternating pairing on the lattice
+  //  [1,0]
+  //  [0,1]
+  //  [tau/2, 1/2]
+  //  [1/2, sigma/2]
+  // corresponding to the principal polarization inherited from the two
+  // elliptic lattices <1, tau> and <1,sigma>. The inputs v1 = (w1, w2) and 
+  // v2 = (z1,z2) are vectors over an imaginary quadratic field. If
+  // tau = a + b*delta and sigma = c + d*delta, with delta^2 rational, then
+  // the pairing is Trace(w1*z1bar / b / delta + w2*z2bar / d / delta)  
+  w1,w2 := Explode(Eltseq(v1));
+  z1,z2 := Explode(Eltseq(v2));
+  return Trace( w1*QuadraticConjugate(z1)/(tau-Trace(tau,Rationals())/2)
+              + w2*QuadraticConjugate(z2)/(sigma-Trace(sigma,Rationals())/2),
+              Rationals());
+end function;  
+
+function DegreeCToE(tau,sigma,v);
+  // If v is an element of the lattice L generated by 
+  //  [1,0]
+  //  [0,1]
+  //  [tau/2, 1/2]
+  //  [1/2, sigma/2]
+  // such that tau*v is also in L, then return the pairing of tau*v with v
+  // under the poilarization pairing on L. This is the degree of the associated
+  // map from C to E.
+  return PolarizationPairing(tau,sigma,tau*v,v);
+end function;
+
+
+function BilinearPairing(tau,sigma,v1,v2)
+  // The function DegreeCToE is a quadratic form on the sublattice of L 
+  // consisting of elements v such that tau*v also lies in L. Return the
+  // associated bilinear form, evaluated on the pair (v1, v2).
+  return (1/2)*(DegreeCToE(tau,sigma,v1+v2) - DegreeCToE(tau,sigma,v1) - DegreeCToE(tau,sigma,v2));
+end function;
+
+function LatticeBasisCoefficients(tau,sigma,v)
+   // v is an element of the lattice L generated by
+   //  [1,0]
+   //  [0,1]
+   //  [tau/2, 1/2]
+   //  [1/2, sigma/2]
+   // Return the sequence of coefficients of v when expressed on this basis.
+   
+   // a + c*tau/2 + d/2 = v[1]
+   // b + c/2 + d*sigma/2 = v[2]
+   c := 2*(v[1] - Trace(v[1])/2) / (tau - Trace(tau)/2);
+   d := 2*(v[2] - Trace(v[2])/2) / (sigma - Trace(sigma)/2) ;
+   a := v[1] - tau*c/2 - d/2;
+   b := v[2] - c/2 - d*sigma/2;
+   assert v eq   a*Vector([tau/tau,0]) 
+               + b*Vector([0,sigma/sigma])
+               + c*Vector([tau/2,1/2]) 
+               + d*Vector([1/2,sigma/2]);
+  return [Rationals()|a,b,c,d];
+end function;
+
+
+function IntegralRowSublattice(v1,v2,v3,v4,i)
+  // Given generators v1, v2, v3, v4 of a Z-lattice L in Q^4, and an index 
+  // i between 1 and 4, return generators for the sublattice of L whose
+  // elements are integral in the i-th coordinate.
+  
+  if v1[i] lt 0 then v1 := -v1; end if;
+  if v2[i] lt 0 then v2 := -v2; end if;
+  if v3[i] lt 0 then v3 := -v3; end if;
+  if v4[i] lt 0 then v4 := -v4; end if;
+  a1 := v1[i];
+  a2 := v2[i];
+  a3 := v3[i];
+  a4 := v4[i];
+  as := [a1,a2,a3,a4];
+  vs := [v1,v2,v3,v4];
+  ParallelSort(~as,~vs);
+  
+  while as[3] ne 0 do
+    a := Min([a : a in as | a ne 0]);
+    j := 0; 
+    repeat j+:=1; until as[j] eq a;
+    for k in [1..4] do 
+      if k ne j then
+        vs[k] := vs[k] - Floor(vs[k][i]/a)*vs[j];
+      end if;
+    end for;
+    v1, v2, v3, v4 := Explode(vs);
+    a1 := v1[i];
+    a2 := v2[i];
+    a3 := v3[i];
+    a4 := v4[i];
+    as := [a1,a2,a3,a4];
+    ParallelSort(~as,~vs);
+  end while;
+  a := as[4];
+  d := Denominator(a);
+  v1, v2, v3, v4 := Explode(vs);
+  return v1, v2, v3, d*v4;
+end function;
+
+
+
+
+
+
+
+function gram(tau,sigma)
+  // tau and sigma are elements of an imaginary quadratic field.
+  
+  K := Parent(tau+sigma);
+  Delta := Discriminant(K);
+  delta := Sqrt(K!Delta);
+  a := Trace(tau,Rationals())/2;
+  b := Rationals()!((tau-a)/delta);
+  c := Trace(sigma,Rationals())/2;
+  d := Rationals()!((sigma-c)/delta);
+  
+  // so tau = a = b*delta
+  //  sigma = c + d*delta
+
+  // Basis for L:
+  a1 := Vector([K|1,0]);
+  a2 := Vector([K|0,1]);
+  a3 := Vector([tau/2,1/2]);
+  a4 := Vector([1/2,sigma/2]);
+  
+  
+  aa1 := tau^-1*a1;
+  aa2 := tau^-1*a2;
+  aa3 := tau^-1*a3;
+  aa4 := tau^-1*a4;
+  v1 := Vector(LatticeBasisCoefficients(tau,sigma,aa1));
+  v2 := Vector(LatticeBasisCoefficients(tau,sigma,aa2));
+  v3 := Vector(LatticeBasisCoefficients(tau,sigma,aa3));  
+  v4 := Vector(LatticeBasisCoefficients(tau,sigma,aa4));
+    
+  v1,v2,v3,v4 := IntegralRowSublattice(v1,v2,v3,v4,1);
+  v1,v2,v3,v4 := IntegralRowSublattice(v1,v2,v3,v4,2);
+  v1,v2,v3,v4 := IntegralRowSublattice(v1,v2,v3,v4,3);
+  v1,v2,v3,v4 := IntegralRowSublattice(v1,v2,v3,v4,4);
+
+  b1 := v1[1]*a1 + v1[2]*a2 + v1[3]*a3 + v1[4]*a4;
+  b2 := v2[1]*a1 + v2[2]*a2 + v2[3]*a3 + v2[4]*a4;
+  b3 := v3[1]*a1 + v3[2]*a2 + v3[3]*a3 + v3[4]*a4;
+  b4 := v4[1]*a1 + v4[2]*a2 + v4[3]*a3 + v4[4]*a4;
+  
+  
+  
+  return Matrix(4,[BilinearPairing(tau,sigma,v,w) : v,w in [b1,b2,b3,b4]]);
+end function;
+
+
+
+function StandardForm(L)
+  // We have a lattice that is isomorphic to one of four known lattices.
+  // Identify which one.                      11 12 13 14 21 22 23 24 31 32 33 34 41 42 43 44
+  q1 := LatticeWithGram(Matrix(4,[Rationals()|2, 0, 0, 0, 0, 3, 1, 0, 0, 1, 3, 0, 0, 0, 0, 4]));
+  q2 := LatticeWithGram(Matrix(4,[Rationals()|2, 0, 0, 1, 0, 2, 1, 0, 0, 1, 3, 0, 1, 0, 0, 3]));
+  q3 := LatticeWithGram(Matrix(4,[Rationals()|2, 1, 1, 0, 1, 3, 0, 1, 1, 0, 3, 1, 0, 1, 1, 4]));
+  q4 := LatticeWithGram(Matrix(4,[Rationals()|2,-1, 0, 1,-1, 3, 1, 0, 0, 1, 4, 2, 1, 0, 2, 6]));
+  if IsIsomorphic(L,q1) then return 1; end if;
+  if IsIsomorphic(L,q2) then return 2; end if;
+  if IsIsomorphic(L,q3) then return 3; end if;
+  if IsIsomorphic(L,q4) then return 4; end if;
+  return 0;
+end function;
+
+
+
+
+
+procedure CurvesWithManyMaps();
+  // Find the pairs (tau, sigma), with tau in a certain fundamental domain for
+  // Gamma(1) and sigma in a certain fundmental domain for Gamma(2), such that
+  // there is a curve C with period matrix
+  //     [1   0   tau/2      1/2]
+  //     [0   1     1/2  sigma/2]
+  // (and with a particular Riemann form, see [Howe2026]) such that C has maps
+  // of every degree n > 1 to the elliptic curve E with period lattice <1,tau>.
+  // We let F be the elliptic curve with period lattice <1,sigma>. It is shown
+  // in [Howe2026] that E and F are isogenous.
+
+  U<u,v>:=PolynomialRing(Rationals(),2);
+  modpols := ModPols61(u,v);
+  // modpols is a list of the first 61 classical modular polynomials Phi_n.
+
+  HCFs := AssociativeArray();
+  for Delta in [-3,-4,-7,-8,-11,-12,-16,-19,-20,-24,-32,-36,-48,-64,-72,-100] do
+    HCFs[HilbertClassPolynomial(Delta)] := Delta;
+  end for;
+
+  // From [Howe2026]: A list of pairs (Delta, p) such that if E and F are as
+  // above, then for some pair (Delta, P) on the list, End E has discriminant
+  // Delta and there is a p-isogeny from E to F.
+  Deltaps :=   
+    [[D, 1] : D in [-3, -4, -7, -11, -12, -16, -19, -20, -24, -27, -28]]
+    cat
+    [[D, 2] : D in [-4, -7, -8, -12, -15, -16, -20, -23, -24, -31, -36, -39, -40 ]]
+    cat
+    [[D, 3] : D in [-3, -4, -8, -11, -12, -16, -19, -20]]
+    cat 
+    [[D, 5] : D in [-3, -4, -7, -8, -11, -12, -15, -16, -19, -31, -35, -40,
+                    -76, -91, -104, -115, -124, -131, -136, -139, -140]];
+
+  R<x>:=PolynomialRing(Rationals());
+  possiblepairs := <>;
+
+  for Deltap in Deltaps do
+    Delta, p:= Explode(Deltap);
+    Efieldpol := HilbertClassPolynomial(Delta);
+    if Degree(Efieldpol) eq 1 then
+      K := Rationals();
+      jE := Roots(Efieldpol)[1][1];
+    else 
+      K<jE>:=NumberField(Efieldpol);
+    end if;
+    S<y>:=PolynomialRing(K);
+    Fpol := Evaluate(modpols[p],[jE,y]);
+    for gg in Factorization(Fpol) do
+      Ffieldpol := gg[1];
+      if Degree(Ffieldpol) eq 1 then
+        L := K;
+        jF := Roots(Ffieldpol)[1][1];
+      else
+        L<jF>:=ext<K | Ffieldpol>;
+      end if;
+      good := true;
+      for t in [2..31] do
+        if not IsPossiblePair(jE,jF,t,modpols) then
+          good := false;
+          break t;
+        end if;
+      end for;
+      if good then 
+        assert Degree(Efieldpol) in [1,2] and
+               Degree(Efieldpol)*Degree(Ffieldpol) in [1,2];
+        if Degree(Efieldpol) eq 2 then 
+          Ffieldpol2 := Efieldpol;
+        else
+          if Degree(Ffieldpol) eq 2 then
+            Ffieldpol2 := Ffieldpol;
+          else
+            Ffieldpol2 := x - jF;
+          end if;
+        end if;
+        possiblepairs := Append(possiblepairs,<R!Efieldpol,R!Ffieldpol2,jE eq jF>);
+      end if;
+    end for;
+  end for;
+
+  possiblepairs := Sort([a : a in {b : b in possiblepairs}]);
+
+  discpairs := [];
+
+  for pair in possiblepairs do
+    f := pair[1];
+    if Degree(f) eq 1 then
+      K := Rationals();
+      jE := Roots(f)[1][1];
+    else
+      K<jE>:=NumberField(f);
+      jE := K.1;
+    end if;
+    g := pair[2];
+    if Degree(g) eq 1 then
+      jF := Roots(g)[1][1];
+    else
+      if pair[3] then
+        jF := jE;
+      else
+        if Degree(f) eq 1 then
+          K<jF>:=NumberField(g);
+        else
+          jF := Trace(jE,Rationals())-jE;
+        end if;
+      end if;
+    end if;
+    discpairs cat:= [<HCFs[MinimalPolynomialQbar(jE)], HCFs[MinimalPolynomialQbar(jF)], pair[3]>];
+  end for;
+
+  Sort(~discpairs);
+  print "The possible pairs of discriminants are as follows.";
+  print "When the discriminants in a pair are equal, the boolean value says";
+  print "whether the pairs of elliptic curves we must consider are isomorphic";
+  print "to one another or not. See Proposition 12 in the paper.\n";
+  for i in [#discpairs..1 by -1] do print discpairs[i]; end for;
+  
+  for discs in discpairs do
+    K<s> := QuadraticField(discs[1]);
+    D := Discriminant(MaximalOrder(K));
+    for tau in LatticesFromDiscriminant(discs[1],K) do
+      for sigma in LatticesFromDiscriminant(discs[2],K) do
+        if (sigma eq tau) eq discs[3] then
+          // Compute images of sigma in fundamental domain for X(2).
+          // But! If two images are equiv under stabilizer of tau, only
+          // include one of them.
+          if tau^2 + 1 eq 0 then
+            // tau = -1/tau
+            sigmas := {sigma, sigma+1, sigma/(sigma+1)};
+          else    
+            sigmas := {K!a : a in PreimagesX2(sigma)};
+          end if;
+        
+          for sig in sigmas do
+            G := gram(tau,sig);
+            L := LatticeWithGram(G);
+            vs := {a[2] : a in ShortVectors(L,32)};
+              if vs eq {2..32} then printf "%o,  %o,  %o,  %o,  %o,  %o,  %o\n", s^2, discs[1], discs[2], K!tau, K!sig, K!ImageInFundamentalDomainX1(sig), StandardForm(L); end if;
+          end for;
+        end if;
+      end for;
+    end for;
+  end for;
+  
+end procedure;
+
