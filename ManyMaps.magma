@@ -1,13 +1,13 @@
 // ManyMaps.magma
-// Version 0.9
-// 24 January 2026
+// Version 0.91
+// 10 February 2026
 
 // Code related to the paper:
 
 // [Howe2026]
 // Everett W. Howe:
-// Curves of genus two with maps of every degree to a fixed elliptic curve
-// arXiv link to be provided
+// Curves of genus two with maps of every degree to a fixed elliptic curve,
+// https://doi.org/10.48550/arXiv.2601.19050
 
 
 /* 
@@ -39,9 +39,6 @@ of imaginary quadratic orders in the field Q(\sqrt{d}), tau is an element of F_1
 sigma is an element of F_2, rho is an element of F_1 giving the same elliptic 
 curve as sigma, and n is an integer between 1 and 4. The meaning of these 
 quantities is explained in [Howe2026].
-
-We also include a function, VerifyExamples(), that verifies that the pairs
-(C,E) specified in Section ?? of [Howe2026]. 
 
 */
 
@@ -529,9 +526,9 @@ procedure CurvesWithManyMaps();
   print "When the discriminants in a pair are equal, the boolean value says";
   print "whether the pairs of elliptic curves we must consider are isomorphic";
   print "to one another or not. See Proposition 12 in the paper.\n";
-
+  
   for i in [#discpairs..1 by -1] do print discpairs[i]; end for;
-
+  
   print "\n";
   
   for discs in discpairs do
