@@ -1,13 +1,13 @@
 // Examples.magma
-// Version 0.91
-// 28 January 2026
+// Version 0.93
+// 10 February 2026
 
 // Code related to the paper:
 
 // [Howe2026]
 // Everett W. Howe:
-// Curves of genus two with maps of every degree to a fixed elliptic curve
-// arXiv link to be provided
+// Curves of genus two with maps of every degree to a fixed elliptic curve,
+// https://doi.org/10.48550/arXiv.2601.19050
 
 /*
 The paper referenced gives a list of pairs (tau, sigma) such that there is a 
@@ -25,7 +25,7 @@ to E that take a fixed base point P on C to the origin on E.
 The paper [Howe2026] also gives explicit equations for the curves C, with 
 coefficients in number fields of degree at most 4.
 
-The programs in this file gives further algebraic information for some of the
+The proGrams in this file gives further algebraic information for some of the
 pairs (C,E): namely, equations for E and for four explicit morphisms
 phi1, phi2, phi3, phi4 from C to E that take a fixed base point to the origin,
 and such that 
@@ -35,12 +35,13 @@ and such that
 In other words, the examples are removed completely from the world of complex
 analysis and into the world of algebra.
 
-At the moment, only two examples are included. The exmples are identified by the
-discriminant of the endomorphism ring of E, and the discriminant of the
+At the moment, only three examples are included. The examples are identified by
+the discriminant of the endomorphism ring of E and the discriminant of the
 endomorphism ring of an associated elliptic curve F. See [Howe2026] for
-details.) The two examples are for
+details. The three examples are for
   DeltaE = -4 , DeltaF = -100
-  DeltaE = -10, DeltaF = -20.
+  DeltaE = -10, DeltaF = -20
+  DeltaE = -36, DeltaF = -36
 
 The procedure VerifyManyMaps() will print out a sequence of triples
   DeltaE, DeltaF, G
@@ -58,6 +59,14 @@ First public version.
 
 Version 0.91, 2026-01-28: 
 Added second example, DeltaE = DeltaF = -20.
+
+Version 0.92, 2026-01-21: 
+Added third example, DeltaE = DeltaF = -36.
+Edited first example to use different model of C.
+
+Version 0.93, 2026-02-10: 
+Reverted to the original form of the first example.
+Added arXiv link.
 
 */
 
@@ -100,10 +109,10 @@ procedure VerifyManyMaps()
   S<w>:=PolynomialRing(Rationals());
   
   // The Gram matrices of the four quadratic forms in [Howe2026].
-  gram1 := Matrix(4,[Rationals()|2, 0, 0, 0, 0, 3, 1, 0, 0, 1, 3, 0, 0, 0, 0, 4]);
-  gram2 := Matrix(4,[Rationals()|2, 0, 0, 1, 0, 2, 1, 0, 0, 1, 3, 0, 1, 0, 0, 3]);
-  gram3 := Matrix(4,[Rationals()|2, 1, 1, 0, 1, 3, 0, 1, 1, 0, 3, 1, 0, 1, 1, 4]);
-  gram4 := Matrix(4,[Rationals()|2,-1, 0, 1,-1, 3, 1, 0, 0, 1, 4, 2, 1, 0, 2, 6]);
+  Gram1 := Matrix(4,[Rationals()|2, 0, 0, 0, 0, 3, 1, 0, 0, 1, 3, 0, 0, 0, 0, 4]);
+  Gram2 := Matrix(4,[Rationals()|2, 0, 0, 1, 0, 2, 1, 0, 0, 1, 3, 0, 1, 0, 0, 3]);
+  Gram3 := Matrix(4,[Rationals()|2, 1, 1, 0, 1, 3, 0, 1, 1, 0, 3, 1, 0, 1, 1, 4]);
+  Gram4 := Matrix(4,[Rationals()|2,-1, 0, 1,-1, 3, 1, 0, 0, 1, 4, 2, 1, 0, 2, 6]);
 
   
 
@@ -154,16 +163,15 @@ procedure VerifyManyMaps()
   phi3 := EL![ P3,i*y*Q3];
   phi4 := EL![-P3,  y*Q3];
   
-  gram := quadformmatrix(phi1, phi2, phi3, phi4);
+  Gram := quadformmatrix(phi1, phi2, phi3, phi4);
 
-  print DeltaE, DeltaF, gram;
+  print DeltaE, DeltaF, Gram;
 
-  assert gram eq gram2;
-  print "This is the correct gram matrix.\n";
-
-
+  assert Gram eq Gram2;
+  print "This is the correct Gram matrix.\n";
 
 
+  // ===========================================================================
   // Second example:
   DeltaE := -20;
   DeltaF := -20;
@@ -210,12 +218,84 @@ procedure VerifyManyMaps()
   phi4 := EL![P3b,Q3b];
 
   
-  gram := quadformmatrix(phi1, phi2, phi3, phi4);
+  Gram := quadformmatrix(phi1, phi2, phi3, phi4);
 
-  print DeltaE, DeltaF, gram;
+  print DeltaE, DeltaF, Gram;
 
-  assert gram eq gram2;
-  print "This is the correct gram matrix.\n";
+  assert Gram eq Gram2;
+  print "This is the correct Gram matrix.\n";
+  
+  
+  // ===========================================================================
+  // Third example:
+  DeltaE := -36;
+  DeltaF := -36;
+
+ // Define the number field over which the curves and maps are rational:
+
+  K<r>:=NumberField(w^4 - w^2 + 1);
+  i := r^3;
+  s := 2*r^4+1;  
+  assert i^2 + 1 eq 0;
+  assert s^2 + 3 eq 0;
+  
+  Z<z>:=PolynomialRing(K);
+  f := z^5 + (12-8*s)*z^4 + (-6 - 73*s)*z^3 + (-252-168*s)*z^2 + (-423-72*s)*z;
+  C := HyperellipticCurve(f);
+  L<x,y>:=FunctionField(C);
+
+  ec36overbase := z^3 + 8*i*s*z^2 + (14*i*s + 24)*z;
+  ec36 := z^3 + 4*(s + i*s)*z^2 + (7*s-12*i)*z;
+  Ebase := EllipticCurve(ec36overbase);
+  E := EllipticCurve(ec36);
+
+  // Verify that this has CM by -20:
+  assert Evaluate(HilbertClassPolynomial(-36),jInvariant(E)) eq 0;
+  
+  // Verify that E is twist of Ebase by 1 + i:
+  assert IsIsomorphic(E, QuadraticTwist(Ebase, 1+i));
+  
+  EL := BaseExtend(E,L);
+  
+  P2 := (-s-2*i)*(x - (2*i*s+3*i))^2/x;
+  Q2 := (1+i)*(3*i*s - 5)/2 * (x - (2*i*s+3*i))/x^2;
+  phi1 := EL![P2, y*Q2];
+
+  P3 := 2 * (-2*s*i+29*s-90*i-47) * x * (x^2 + (6 - 2*s)*x + (15 - 11*s)/2)
+         / (26*x - (-5*i*s + 92*s + 87*i - 72))^2;
+  Q3 := (-i*s - 5*s + 7*i + 9)^3 * (x^2 + (i*s - 10*s -9*i + 6)*x + (-37*s - 3)/2)
+        / (26*x - (-5*i*s + 92*s + 87*i - 72))^3;
+  phi2 := EL![P3, y*Q3];
+
+  P4 := (i*s + 2)/2 * (x^2 + (6 - 6*s)* x + (-27 - 39*s)/2) 
+                    * (x^2 + (6 - 2*s)* x + (15 - 11*s)/2)
+        / x / (x + (2*i*s + 3*i))^2;
+  Q4 := (3*i*s + 5)/4 * (x^4 + (8*i*s + 12*i) * x^3 + (25*s + 168*i + 18)*x^2
+                                + (-120*i*s + 324*i)*x + (-72*s-423))
+        / x^2 / (x + (2*i*s + 3*i))^3;
+  phi3 := EL![P4, y*Q4];
+  
+  P6 := ( 2 -3*i -2*s -i*s)/4
+        * (x^2 + (6 - 2*s)*x + (15-11*s)/2)
+        * (x^2 + (6 + 6*i - 6*s)*x + (9 - 15*s)/2)^2
+        / x / (x + (6 - 3*i - 2*s - i*s)/2)^2 / (x^2 + (6 - 6*s)*x + (-27 - 39*s)/2);
+  Q6 := (5*i + 3*s)/4 
+        * (x^2 + (6 + 6*i - 6*s)*x + (9 - 15*s)/2)
+        * ( x^6 + (12 -6*i-4*s-2*i*s)*x^5 + (51-144*i-91*s)/2*x^4
+            + (-144-216*i-120*s+84*i*s)*x^3  + (-621 -216*i + 297*s + 360*i*s)/2 * x^2
+            + (1188 + 540*s) * x + (4455 - 621*s)/2)        
+        / x^2
+        / (x + (6 - 3*i - 2*s - i*s)/2)^3
+        / (x^2 + (6 - 6*s)*x + (-27 - 39*s)/2)^2;
+  phi4 := EL[P6, y*Q6];
+  
+  Gram := quadformmatrix(phi1, phi2, phi3, phi4);
+
+  print DeltaE, DeltaF, Gram;
+
+  assert Gram eq Gram4;
+  print "This is the correct Gram matrix.\n";
+  
 
 end procedure;
 
