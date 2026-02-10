@@ -10,7 +10,7 @@ ManyMaps.magma contains the main programs to reproduce the computations in [Howe
 
     CurvesWithManyMaps();
    
-will reproduce information in Proposition 12 and in Table 1 of [Howe2026]   
+will reproduce information in Proposition 12 and in Table 1 of [Howe2026].
 
 Examples.magma contains code to verify Example 15 in Section 5 of [Howe2026]. Running
 
