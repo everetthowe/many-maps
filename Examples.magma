@@ -25,7 +25,7 @@ to E that take a fixed base point P on C to the origin on E.
 The paper [Howe2026] also gives explicit equations for the curves C, with 
 coefficients in number fields of degree at most 4.
 
-The proGrams in this file gives further algebraic information for some of the
+The programs in this file gives further algebraic information for some of the
 pairs (C,E): namely, equations for E and for four explicit morphisms
 phi1, phi2, phi3, phi4 from C to E that take a fixed base point to the origin,
 and such that 
