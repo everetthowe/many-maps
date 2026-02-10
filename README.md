@@ -3,7 +3,7 @@ Magma code related to finding pairs (C,E), where E is an elliptic curve and C is
 
 This code is related to the paper
 
-[Howe2026] Everett W. Howe: [Curves of genus two with maps of every degree to a fixed elliptic curve](https://doi.org/10.48550/arXiv.2601.19050.)
+[Howe2026] Everett W. Howe: [Curves of genus two with maps of every degree to a fixed elliptic curve](https://doi.org/10.48550/arXiv.2601.19050).
 
 
 ManyMaps.magma contains the main programs to reproduce the computations in [Howe2026]. Running
