@@ -40,7 +40,7 @@ the discriminant of the endomorphism ring of E and the discriminant of the
 endomorphism ring of an associated elliptic curve F. See [Howe2026] for
 details. The three examples are for
   DeltaE = -4 , DeltaF = -100
-  DeltaE = -10, DeltaF = -20
+  DeltaE = -20, DeltaF = -20
   DeltaE = -36, DeltaF = -36
 
 The procedure VerifyManyMaps() will print out a sequence of triples
