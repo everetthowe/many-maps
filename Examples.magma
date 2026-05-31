@@ -1,6 +1,6 @@
 // Examples.magma
-// Version 0.93
-// 10 February 2026
+// Version 1.0
+// 30 May 2026
 
 // Code related to the paper:
 
@@ -67,6 +67,13 @@ Edited first example to use different model of C.
 Version 0.93, 2026-02-10: 
 Reverted to the original form of the first example.
 Added arXiv link.
+
+Version 0.94, 2026-05-20:
+Added a verification that the models used here are geometrically isomorphic to
+the models written in Table 2 of [Howe2026].
+
+Version 1.00, 2026-05-30:
+Corrected typo.
 
 */
 
@@ -138,6 +145,19 @@ procedure VerifyManyMaps()
   assert f eq (z^2 - 1)*(z^4 - 2*z^2 + r^24);
 
   C := HyperellipticCurve(f);
+
+  // Verify the Igusa invariants:
+  J := [12588*r - 20268,
+        -1400646*r + 1868172,
+        3733192*r + 2799572,
+        819514039671*r - 1365406035825,
+        272097792000*r
+       ];
+
+  Jf := IgusaInvariants(C);
+  scale := Jf[1]/J[1];
+  assert Jf eq [J[i]*scale^i : i in [1..5]];
+
   L<x,y>:=FunctionField(C);
 
   ec4 := z^3 + 9*s*z;
@@ -186,8 +206,19 @@ procedure VerifyManyMaps()
   
   Z<z>:=PolynomialRing(K);
   f := (s+2)*(z^5 + s*z^3 + z);
+  paperf := z^5 + 5*z^3 + 5*z;
+  
+  assert AbsoluteInvariants(HyperellipticCurve(f)) eq 
+         AbsoluteInvariants(HyperellipticCurve(paperf));
 
   C := HyperellipticCurve(f);
+  // Verify the Igusa invariants:
+  J := [ 140, 550, -60, -77725, 4096 ];
+
+  Jf := IgusaInvariants(C);
+  scale := Jf[1]/J[1];
+  assert Jf eq [J[i]*scale^i : i in [1..5]];
+
   L<x,y>:=FunctionField(C);
 
   
@@ -242,6 +273,19 @@ procedure VerifyManyMaps()
   Z<z>:=PolynomialRing(K);
   f := z^5 + (12-8*s)*z^4 + (-6 - 73*s)*z^3 + (-252-168*s)*z^2 + (-423-72*s)*z;
   C := HyperellipticCurve(f);
+  // Verify the Igusa invariants:
+  J := [1584*s + 180,
+        -56496*s - 207546,
+        -108240*s - 414532,
+        -6031784880*s - 8265051837,
+        -5693276160*s - 8488046592
+       ];
+
+  Jf := IgusaInvariants(C);
+  scale := Jf[1]/J[1];
+  assert Jf eq [J[i]*scale^i : i in [1..5]];
+
+
   L<x,y>:=FunctionField(C);
 
   ec36overbase := z^3 + 8*i*s*z^2 + (14*i*s + 24)*z;
@@ -287,7 +331,7 @@ procedure VerifyManyMaps()
         / x^2
         / (x + (6 - 3*i - 2*s - i*s)/2)^3
         / (x^2 + (6 - 6*s)*x + (-27 - 39*s)/2)^2;
-  phi4 := EL[P6, y*Q6];
+  phi4 := EL![P6, y*Q6];
   
   Gram := quadformmatrix(phi1, phi2, phi3, phi4);
 
@@ -300,4 +344,3 @@ procedure VerifyManyMaps()
 end procedure;
 
            
-
