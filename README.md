@@ -10,15 +10,15 @@ ManyMaps.magma contains the main programs to reproduce the computations in [Howe
 
     CurvesWithManyMaps();
    
-will reproduce information in Proposition 12 and in Table 1 of [Howe2026].
+will reproduce information in Proposition 14 and in Table 1 of [Howe2026].
 
-Examples.magma contains code to verify Example 15 in Section 5 of [Howe2026]. Running
+Examples.magma contains code to verify Example 18 in Section 5 of [Howe2026]. Running
 
     VerifyManyMaps()
    
 will show equation (8) does hold. It also contains explicit formulas for similar examples.
 
-Intersection.magma contains code to verify that if q is a positive definite integer ternary quadratic form that does not represent 1, then there is an n with 1 < n < 1812 such that q does not primitively represent n^2. (This is Proposition 17 from [Howe2026]). Running
+Intersection.magma contains code to verify that if q is a positive definite integer ternary quadratic form that does not represent 1 and that does not represent any integer that is 2 or 3 modulo 4, then there is an n in each of the sets D_1 and D_2 (from Theorems 3 and 4) such that q does not primitively represent n^2, thus proving Proposition 21 (and therefore also Theorems 3 and 4). Running
 
     runthroughforms()
 
@@ -26,6 +26,6 @@ will verify this. Running
 
     sharp()
 
-will verify that the upper bound is sharp. In particular, it checks that the form 4x^2 + 9y^2 + 15z^2 + 2xy + 3xz + 8yz does not represent 1, but primitively represents every n^2 with 1 < n < 1811.
+will verify the form 4x^2 + 8y^2 + 9z^2 + 4xy + 4yz does not represent 1, but primitively represents every n^2 with 1 < n < 58.
 
 modpols61.magma includes a program that will return a list of the first 61 classical modulat polynomials.
