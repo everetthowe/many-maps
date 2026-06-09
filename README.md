@@ -26,6 +26,6 @@ will verify this. Running
 
     sharp()
 
-will verify the form 4x^2 + 8y^2 + 9z^2 + 4xy + 4yz does not represent 1, but primitively represents every n^2 with 1 < n < 58.
+will verify the form 4x^2 + 8y^2 + 9z^2 + 4xy + 4yz does not represent 1, but primitively represents every n^2 with 1 < n < 59.
 
 modpols61.magma includes a program that will return a list of the first 61 classical modulat polynomials.
