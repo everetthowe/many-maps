@@ -1,6 +1,6 @@
 // Intersection.magma
-// Version 1.0
-// 30 May 2026
+// Version 1.1
+// 5 July 2026
 
 // Code related to the paper:
 
@@ -23,15 +23,6 @@ half-integers.
 
 
 /*
-Let N be the product of all of the following:
-
-2^6, 3^3, 5^2, 7, 11, 17, 19, 23, 29, 31, 37, 43, 47, 53, 59, 61, 67, 71, 73,
-79, 83, 97, 103, 107, 109, 113, 127, 131, 139, 151, 157, 163, 167, 173, 179,
-181, 191, 197, 199, 211, 223, 227, 239, 263, 271, 277, 283, 293, 311, 359, 383,
-431, 439, 479, 503, 599, 631, 719, 727, 743, 751, 823, 839, 863, 887, 911, 983,
-991, 1031, 1039, 1063, 1103, 1151, 1223, 1231, 1303, 1319, 1327, 1439, 1487,
-1511
-
 This file contains code that shows that if q is a positive definite integer 
 ternary quadratic form and if
  (a) q does not represent 1 and
@@ -40,8 +31,10 @@ then q does not primitively represent n^2 for at least one n in the set
 D1 := {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 19, 31, 59 }.
 
 Also, given any integer k > 0, q does not primitively represent n^2 for at least
-one n in the set D2 := {2, 3, 13, kN}, with N the large integer defined above.
-
+one n in the set D2 := {2, 3, 4, kN}, where N is the product
+N = 2^5 * 3^2 * 5 * 7 * 11 * 13 * 19 * 23 * 31 * 37 * 47 * 59 * 71 * 131
+  = 18634637052330979680.
+  
 
 The function does_primitively_represent(q,n) takes a quadratic lattice (of the
 type produced by LatticeWithGram) and a positive integer n, and returns true or
@@ -65,7 +58,7 @@ The function runthroughforms() uses the algorithm described in Section 7 of
 quadratic forms that 
   (a) do not represent 1,
   (b) do not represent any integers that are 2 or 3 modulo 4, and
-  (c) that *do* represent 2^2, 3^2, and 13^2.
+  (c) that *do* primitively represent 2^2, 3^2, and 4^2.
 It then uses the function misses(v) to verify that each such form does not
 primitively represent all of the integers in D1 or in D2. 
 
@@ -85,11 +78,19 @@ and observe that it returns "true."
 /*
 Change log:
 
-Version 0.9 : First release.
+Version 0.90: First release.
 Version 0.91: In bound(), replaced IsSquare(GF(p)!(r^2-a*b)) with a check on
               symmetric versions of same condition.
 Version 0.92: Same comment as for Version 0.91, only this time do it correctly.
 Version 1.00: Thoroughly revised to reflect improved results.       
+Version 1.10: Revised to reflect improved results. Mainly: Earlier versions 
+              computed the ternary forms that primitively represent 2^3, 3^2,
+              and 13^2 and analyzed them. Now, we look at ternary forms that
+              represent 2^2, 3^2, and 4^2. There are fewer, and we wind up with
+              (what the author things is) a better theorem.
+              Because we consider a different set of forms, it turns out that
+              one computation included in the function misses() is no longer
+              needed, so we have deleted that section of code.
 
 */
 
@@ -139,7 +140,7 @@ function misses(v : smallbound := 100)
   //
   // Return two lists: 
   // If the quadratic form represented by v represents 1, return [], [1].
-  // If it does not primitively represent 2^2, 3^2, 13^2, return [] and
+  // If it does not primitively represent 2^2, 3^2, 9^2, return [] and
   // the ones it misses.
   // 
   // Otherwise:
@@ -160,14 +161,14 @@ function misses(v : smallbound := 100)
   V :=  ShortVectors(q,1,1);
   if #V gt 0 then return [],[1]; end if;
 
-  V :=  ShortVectors(q,1,169);
+  V :=  ShortVectors(q,1,81);
   primitive := [v : v in V | GCD([Integers()!w : w in Eltseq(v[1])]) eq 1];
   S := {a[2] : a in primitive | IsSquare(a[2])};
-  missing := [u : u in [2,3,13] | not u^2 in S];
+  missing := [u : u in [2,3,4] | not u^2 in S];
   if #missing gt 0 then return [], missing; end if;
 
   plist := [];
-  D := Determinant(M);
+  Det := Determinant(M);
   
   // Set A := a, B := (a*b-r^2)/a, and 
   // C := (a*b*c - a*t^2 - b*s^2 - c*r^2 + 2*r*s*t)/(a*b - r^2).
@@ -190,24 +191,27 @@ function misses(v : smallbound := 100)
              [c,a,b,s,t,r]] do
 
     aa,bb,cc,rr,ss,tt := Explode(vv);
-    AA := aa;
-    BB := (aa*bb-rr^2)/aa ;
-    CC := (aa*bb*cc - aa*tt^2 - bb*ss^2 - cc*rr^2 + 2*rr*ss*tt)/(aa*bb - rr^2);
-    for p in PrimeBasis(Integers()!(4*D)) do
+    A := aa;
+    B := (aa*bb-rr^2)/aa ;
+    C := (aa*bb*cc - aa*tt^2 - bb*ss^2 - cc*rr^2 + 2*rr*ss*tt)/(aa*bb - rr^2);
+    for p in PrimeBasis(Integers()!(4*Det)) do
     
-      vA := Valuation(AA,p);
-      vB := Valuation(BB,p);
-      vC := Valuation(CC,p);
+      vA := Valuation(A,p);
+      vB := Valuation(B,p);
+      vC := Valuation(C,p);
       if Valuation(rr/aa,p) ge 0 and
          Valuation(ss/aa,p) ge 0 and
          Valuation((rr*ss-aa*tt)/(aa*bb-rr^2),p) ge 0 and
          vA ge 0 and vB ge 0 and vC ge 0 then
+         
+        // Our form is equivalent over Z_p to the diagonal form 
+        // A*x^2 + B*y^2 + C*z^2.
 
         if 1 eq p mod 2  then
 
         // For odd p, we need at least one of A, B, C to have odd valuation:
           if #{0, vA mod 2, vB mod 2, vC mod 2} gt 1 then
-            coefs := [AA,BB,CC];
+            coefs := [A,B,C];
             vcoefs := [vA, vB, vC];
             for i,j in [1..3] do
               if i lt j then
@@ -223,13 +227,13 @@ function misses(v : smallbound := 100)
         else
           // When p = 2 we work numerically. See Remark 23 in [Howe2026].
           T := 2^(3 + Max([vA,vB,vC]));
-          terms1 := {Integers(T)!AA*u^2 : u in [0..T-1]};
-          terms2 := {Integers(T)!BB*v^2 : v in [0..T-1]};
-          terms3 := {Integers(T)!CC*w^2 : w in [0..T-1]};
+          terms1 := {Integers(T)!A*u^2 : u in [0..T-1]};
+          terms2 := {Integers(T)!B*v^2 : v in [0..T-1]};
+          terms3 := {Integers(T)!C*w^2 : w in [0..T-1]};
   
-          terms1limited := {Integers(T)!AA*u^2 : u in [0..T-1] | 0 ne u mod 2};
-          terms2limited := {Integers(T)!BB*v^2 : v in [0..T-1] | 0 ne v mod 2};
-          terms3limited := {Integers(T)!CC*w^2 : w in [0..T-1] | 0 ne w mod 2};
+          terms1limited := {Integers(T)!A*u^2 : u in [0..T-1] | 0 ne u mod 2};
+          terms2limited := {Integers(T)!B*v^2 : v in [0..T-1] | 0 ne v mod 2};
+          terms3limited := {Integers(T)!C*w^2 : w in [0..T-1] | 0 ne w mod 2};
            
           triples := [[D, E, F] : D in terms1limited, E in terms2, F in terms3 | D+E+F eq 0] cat
                      [[D, E, F] : D in terms1, E in terms2limited, F in terms3 | D+E+F eq 0] cat
@@ -247,61 +251,7 @@ function misses(v : smallbound := 100)
       end if;
     end for;
   end for;
-  
-  // One final possibility for p = 2: A not-quite-Z_2-rational diagonalization.
-  
-  // We have q = 4*x^2 + b*y^2 + c*z^2 + 2*r*x*y + 2*s*x*z + 2*t*y*z
-  // and r, s, t are integers. (Here we use that we know that a = 4.)
-  // Suppose, in addition, that r and s are even, say r = 2*rho, s = 2*sigma.
-  
-  // Then we have 
-  //    q = u^2 + B*v^2 + C*w^2 with
-  // B := b - rho^2
-  // C := (b*c - t^2 - b*sigma^2 - c*rho^2 + 2*rho*sigma*t)/(b - rho^2)
-  //
-  // u := 2*x + rho*y + sigma*z
-  // v := y - (rho*sigma-t)/(b-rho^2)*z
-  // w := z.
-  
-  // (This differs from the previous formula by replacing u with 2*u.)
-  // If C and (rho*sigma-t)/(b-rho^2) are integral, set T to be
-  // 2^(5 + Max(Valuation(B,2), Valuation(c,2)).
-  // If we can show that, in Z/TZ, every solution of 0 =  u^2 + B*v^2 + C*w^2
-  // has u, v, and w divisible by 4, then every solution of q(x,y,z) = 0
-  // must have z divisible by 4, y divisible by 4, and x divisible by 2.
-
-  if 0 eq (Integers()!r) mod 2 and 0 eq (Integers()!s) mod 2 then
-    rho := r/2;
-    sigma := s/2;
-    B := b - rho^2;
-    C := (b*c - t^2 - b*sigma^2 - c*rho^2 + 2*rho*sigma*t)/(b - rho^2);
-    vB := Valuation(B,2);
-    vC := Valuation(C,2);
-    if vC ge 0 and Valuation((rho*sigma-t)/(b-rho^2),2) ge 0 then
-
-      T := 2^(5 + Max([vB,vC]));
-      terms1 := {Integers(T)!  u^2 : u in [0..T-1]};
-      terms2 := {Integers(T)!B*v^2 : v in [0..T-1]};
-      terms3 := {Integers(T)!C*w^2 : w in [0..T-1]};
-  
-      terms1limited := {Integers(T)!  u^2 : u in [0..T-1] | 0 ne u mod 4};
-      terms2limited := {Integers(T)!B*v^2 : v in [0..T-1] | 0 ne v mod 4};
-      terms3limited := {Integers(T)!C*w^2 : w in [0..T-1] | 0 ne w mod 4};
-           
-      triples := [[D, E, F] : D in terms1limited, E in terms2, F in terms3 | D+E+F eq 0] cat
-                 [[D, E, F] : D in terms1, E in terms2limited, F in terms3 | D+E+F eq 0] cat
-                 [[D, E, F] : D in terms1, E in terms2, F in terms3limited | D+E+F eq 0];
-
-      if #triples eq 0 then
-        bool, rootT := IsSquare(T);
-        if not bool then
-          bool, rootT := IsSquare(2*T);
-        end if;
-        plist cat:= [rootT];
-        end if;
-    end if;
-  end if;
-  
+ 
   plist := Sort([a : a in Set(plist)]);          
 
   V :=  ShortVectors(q,2^2,smallbound^2);
@@ -322,23 +272,17 @@ function runthroughforms( : smallbound := 100);
   // We follow the algorithm sketched in Section 7 of [Howe2026] to enumerate
   // all positive definite integer ternary quadratic forms that do not 
   // represent 1, that do not represent any integers that are 2 or 3 mod 4,
-  // and that primitively represent 2^2, 3^2, and 13^2.
+  // and that primitively represent 2^2, 3^2, and 4^2.
   
   // Our form will be ax^2 + by^2 + cz^2 + 2rxy + 2sxz + 2tyz.
   // a, b, and c are the successive minima.
     
-  // Check to see that the form does not represent the squares of all of the
-  // integers in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 19, 31, 59}.
+  // Check to see that the form does not represent the square of some integer in
+  // the set {2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 19, 31, 59}.
 
-  // Check to see that the form does not represent (any multiple of) N^2,
-  // with N the LCM of these prime powers:
+  // Check to see that the form does not represent (any multiple of) N^2, where
+  // N = 2^5 * 3^2 * 5 * 7 * 11 * 13 * 19 * 23 * 31 * 37 * 47 * 59 * 71 * 131.
 
-  // 2^6, 3^3, 5^2, 7, 11, 17, 19, 23, 29, 31, 37, 43, 47, 53, 59, 61, 67, 71,
-  // 73, 79, 83, 97, 103, 107, 109, 113, 127, 131, 139, 151, 157, 163, 167, 173,
-  // 179, 181, 191, 197, 199, 211, 223, 227, 239, 263, 271, 277, 283, 293, 311,
-  // 359, 383, 431, 439, 479, 503, 599, 631, 719, 727, 743, 751, 823, 839, 863,
-  // 887, 911, 983, 991, 1031, 1039, 1063, 1103, 1151, 1223, 1231, 1303, 1319,
-  // 1327, 1439, 1487, 1511
 
   biglist := [];
   // a must be 4 since the form represents 4 but nothing smaller.
@@ -366,14 +310,14 @@ function runthroughforms( : smallbound := 100);
       q1 := LatticeWithGram(M1);
       
       // If q1 does not primitively represent 3^2 then third successive minimum 
-      // must be at most 3^2. If q1 does not primitively represent 13^2 then
-      // the third successive minimum must be at most N2. We check that one of 
-      // these conditions is true, and make use of the more restrictive 
-      // conclusion.
+      // must be at most 3^2. If q1 does not primitively represent 4^2 then
+      // the third successive minimum must be at most 4^2. We check that at 
+      // least one of these conditions is true, and make use of the more
+      // restrictive conclusion.
 
       cmax := 0;
-      if not does_primitively_represent(q1, 13^2) then cmax := 13^2; end if;
-      if not does_primitively_represent(q1,  3^2) then cmax :=  3^2; end if;
+      if not does_primitively_represent(q1, 4^2) then cmax := 4^2; end if;
+      if not does_primitively_represent(q1, 3^2) then cmax := 3^2; end if;
       if cmax eq 0 then
         error "Something is wrong. The two-variable form is primitively representing something it shouldn't be.";
       end if;
@@ -399,11 +343,11 @@ function runthroughforms( : smallbound := 100);
               M := Matrix(3,[a, r, s, r, b, t, s, t, c]);
               if Determinant(M) le 0 then continue tt; end if;
               
-              // Does the form primitively represent 2^2, 3^2, 13^2?
+              // Does the form primitively represent 2^2, 3^2, 4^2?
               q := LatticeWithGram(M);
-              if not does_primitively_represent(q,2^2)  then continue tt; end if;
-              if not does_primitively_represent(q,3^2)  then continue tt; end if;
-              if not does_primitively_represent(q,13^2) then continue tt; end if;
+              if not does_primitively_represent(q,2^2) then continue tt; end if;
+              if not does_primitively_represent(q,3^2) then continue tt; end if;
+              if not does_primitively_represent(q,4^2) then continue tt; end if;
               
               // Last check of the "don't represent 2 or 3 mod 4" condition.
             
@@ -429,12 +373,7 @@ function runthroughforms( : smallbound := 100);
   answer := [];
   bool := true;
   D1 := {2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 19, 31, 59};
-  D2 := [2^6, 3^3, 5^2, 7, 11, 17, 19, 23, 29, 31, 37, 43, 47, 53, 59, 61, 67,
-         71, 73, 79, 83, 97, 103, 107, 109, 113, 127, 131, 139, 151, 157, 163,
-         167, 173, 179, 181, 191, 197, 199, 211, 223, 227, 239, 263, 271, 277,
-         283, 293, 311, 359, 383, 431, 439, 479, 503, 599, 631, 719, 727, 743,
-         751, 823, 839, 863, 887, 911, 983, 991, 1031, 1039, 1063, 1103, 1151,
-         1223, 1231, 1303, 1319, 1327, 1439, 1487, 1511];
+  D2 := {2^5, 3^2, 5, 7, 11, 13, 19, 23, 31, 37, 47, 59, 71, 131};
 
   for v in biglist do
     plist,mlist := misses(v : smallbound := smallbound);
@@ -539,3 +478,5 @@ function sharp()
   
   return bool;
 end function;  
+
+
